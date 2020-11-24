@@ -1,38 +1,79 @@
-const User = require('../model/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
+const {check, validation} = require('express-validator');
+const User = require('../model/User');
 module.exports = class userController {
-    static register(req, res, next){
-        const {username, email, password} = req.body;
-        const user = new User({username, email, password});
-        user
-            .save()
-            .then((user) => {
-                res.status(201).json({
-                    success: true,
-                    data: {
-                        _id: user._id,
-                        username: user.username,
-                        email: user.email,
-                    }
-                });
+    static register (req, res){
+         const errors = validationResult (req);
+         if (!errors.isEmpty ()) {
+           return res.status (400).json ({errors: errors.array ()});
+        }
+        bcrypt.hash (req.body.password, 10, function (err, hash) {
+          console.log('reg', req.body);
+            const {nik, username, email, namaDepan, namaBelakang} = req.body;
+          User.create ({
+            NIK : nik,
+            Username : username,
+            Password : hash,
+            Email : email,
+            namaDepan : namaDepan,
+            namaBelakang : namaBelakang
+          })
+
+            .then (result => {
+              res.status (201).json ({
+                success: true,
+                msg: 'Success Create',
+                data: result,
+              });
             })
-            .catch(next);
+            .catch (err => {
+              res.status (500).json ({
+                success: false,
+                msg: 'Failed Register',
+                detail: err,
+              });
+            });
+        });
     }
 
-    static login(req, res, next){
-        const {username, password} = req.body;
-        User.findOne({username})
-            .then((user)=>{
-                if(user && bcrypt.compareSync(password, user.password)){
-                    const access_token = jwt.sign({_id: user.id}, 'CLIENT');
-                    res.status(200).json({
-                        success: true,
-                        access_token
-                    });
-                } else throw{name: 'LOGIN_FAILED'};
-            })
-            .catch(next);
+    static async login (req,res) {
+        const errors = validationResult (req);
+        if (!errors.isEmpty ()) {
+          return res.status (400).json ({errors: errors.array()});
+        }
+        const{ email, password} = req.body
+        try{
+          const userName = await User.findOne({email})
+          if(!userName){
+            return res.status(400).json({msg:"User Invalid"})
+          }
+          const matchPassword = await bcrypt.compare(password, userName.password)
+          if(!matchPassword){
+            return res.status(400).json({error: [{msg: "Invalid Username/Email"}]})
+          }
+          const token = {
+            user : {
+              id : userName.id
+            }
+          }
+          jwt.sign(token, 'CLIENT', { expiresIn: "10h" }, (err, tokens) =>{
+            if(err){
+              res.json({
+                success: false,
+                data: err
+              })
+            }else{
+              res.json({
+                success: true,
+                data: userName,
+                tokens
+              })
+            }
+          })
+
+        }catch(err){
+          res.status(500).json(err)
+        }
     }
 }

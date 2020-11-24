@@ -1,4 +1,6 @@
+const bodyParser = require('body-parser');
 const express = require('express');
+const cors = require('cors');
 const mongooseConnect = require('./config/mongoUrl');
 const route = require('./route/index');
 
@@ -7,8 +9,9 @@ const port = 3000;
 
 mongooseConnect();
 
-app.use(express.urlencoded({extended: true}));
-app.use(express.json);
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json);
+app.use(cors())
 app.use(route);
 
 app.listen(port, ()=> {
